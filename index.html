@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Disparo de Alerta Sísmica</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0d10">
+<style>
+  :root{
+    --bg:#0b0d10;
+    --panel:#14171c;
+    --amber:#ffb020;
+    --amber-dim:#7a5510;
+    --red:#ff3b30;
+    --text:#e8e6df;
+    --text-dim:#8a8f98;
+    --mono: "IBM Plex Mono", "Consolas", monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(255,176,32,0.07), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family: var(--mono);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100vh;
+    padding: max(20px, env(safe-area-inset-top)) 16px 32px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .header{
+    width:100%;
+    max-width:480px;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    border-bottom:1px solid #23272e;
+    padding-bottom:12px;
+    margin-bottom:20px;
+  }
+  .header .tag{
+    font-size:11px;
+    letter-spacing:.14em;
+    color:var(--text-dim);
+    text-transform:uppercase;
+  }
+  .header .clock{
+    font-size:13px;
+    color:var(--amber);
+    letter-spacing:.05em;
+    font-variant-numeric: tabular-nums;
+  }
+  h1{
+    width:100%;
+    max-width:480px;
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin:0 0 4px;
+  }
+  .sub{
+    width:100%;
+    max-width:480px;
+    font-size:12px;
+    color:var(--text-dim);
+    margin-bottom:24px;
+    line-height:1.5;
+  }
+
+  .zones{
+    width:100%;
+    max-width:480px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:28px;
+  }
+  .zone-btn{
+    background:var(--panel);
+    border:1px solid #23272e;
+    color:var(--text);
+    padding:16px 10px;
+    font-family:var(--mono);
+    font-size:13px;
+    letter-spacing:.04em;
+    border-radius:2px;
+    text-align:left;
+    cursor:pointer;
+    position:relative;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .zone-btn .code{
+    display:block;
+    font-size:10px;
+    color:var(--text-dim);
+    letter-spacing:.1em;
+    margin-bottom:6px;
+  }
+  .zone-btn:hover{ border-color:#3a4048; }
+  .zone-btn.selected{
+    border-color:var(--amber);
+    background:linear-gradient(180deg, rgba(255,176,32,0.08), rgba(255,176,32,0.02));
+  }
+  .zone-btn.selected .code{ color:var(--amber); }
+  .zone-btn.selected::after{
+    content:"";
+    position:absolute;
+    top:10px; right:10px;
+    width:6px; height:6px;
+    background:var(--amber);
+    border-radius:50%;
+    box-shadow:0 0 8px var(--amber);
+  }
+
+  .trigger-wrap{
+    position:relative;
+    width:220px;
+    height:220px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin: 8px 0 30px;
+  }
+  .ring{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    border:1px solid var(--amber-dim);
+    opacity:0;
+  }
+  .trigger-wrap.armed .ring{
+    animation: pulse 1.8s ease-out infinite;
+  }
+  .ring:nth-child(2){ animation-delay:.6s !important; }
+  .ring:nth-child(3){ animation-delay:1.2s !important; }
+  @keyframes pulse{
+    0%{ transform:scale(.75); opacity:.55; border-color:var(--red); }
+    100%{ transform:scale(1.35); opacity:0; border-color:var(--red); }
+  }
+  #triggerBtn{
+    width:170px;
+    height:170px;
+    border-radius:50%;
+    border:2px solid var(--amber-dim);
+    background: radial-gradient(circle at 50% 40%, #1b1509, var(--panel) 70%);
+    color:var(--amber);
+    font-family:var(--mono);
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    transition: all .15s ease;
+    z-index:2;
+  }
+  #triggerBtn .icon{ font-size:30px; line-height:1; }
+  #triggerBtn:disabled{ opacity:.35; cursor:not-allowed; }
+  #triggerBtn:not(:disabled):active{ transform:scale(.96); }
+  .trigger-wrap.armed #triggerBtn{
+    border-color:var(--red);
+    color:#ffd7d0;
+    background: radial-gradient(circle at 50% 40%, #2a0d09, var(--panel) 70%);
+  }
+
+  .log{
+    width:100%;
+    max-width:480px;
+    border:1px solid #23272e;
+    background:var(--panel);
+    border-radius:2px;
+    min-height:56px;
+    padding:12px 14px;
+    font-size:12px;
+    line-height:1.7;
+    color:var(--text-dim);
+    white-space:pre-wrap;
+  }
+  .log .ok{ color:#5fd97f; }
+  .log .err{ color:var(--red); }
+  .log .pending{ color:var(--amber); }
+
+  .footer-note{
+    width:100%;
+    max-width:480px;
+    font-size:10px;
+    color:#565b63;
+    margin-top:14px;
+    letter-spacing:.03em;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <span class="tag">Consola de Disparo Manual</span>
+    <span class="clock" id="clock">--:--:--</span>
+  </div>
+
+  <h1>Selecciona la zona</h1>
+  <div class="sub">La alerta se publica en X con hora exacta del disparo. Un solo disparo por zona a la vez.</div>
+
+  <div class="zones" id="zones"></div>
+
+  <div class="trigger-wrap" id="triggerWrap">
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <button id="triggerBtn" disabled>
+      <span class="icon">🚨</span>
+      <span id="triggerLabel">Selecciona zona</span>
+    </button>
+  </div>
+
+  <div class="log" id="log">Esperando selección de zona…</div>
+  <div class="footer-note">SASQA · Disparo manual — usar solo con confirmación real de sismo o simulacro autorizado.</div>
+
+<script>
+const ZONES = [
+  { code: "CDMX", label: "Ciudad de México" },
+  { code: "OAX",  label: "Oaxaca" },
+  { code: "GRO",  label: "Guerrero" },
+  { code: "PUE",  label: "Puebla" },
+  { code: "MOR",  label: "Cuernavaca (Morelos)" },
+];
+
+// URL de tu Netlify Function una vez desplegada
+const ENDPOINT = "/.netlify/functions/post-alert";
+
+let selectedZone = null;
+const zonesEl = document.getElementById('zones');
+const triggerBtn = document.getElementById('triggerBtn');
+const triggerLabel = document.getElementById('triggerLabel');
+const triggerWrap = document.getElementById('triggerWrap');
+const logEl = document.getElementById('log');
+const clockEl = document.getElementById('clock');
+
+ZONES.forEach(z => {
+  const btn = document.createElement('button');
+  btn.className = 'zone-btn';
+  btn.dataset.code = z.code;
+  btn.innerHTML = `<span class="code">${z.code}</span>${z.label}`;
+  btn.addEventListener('click', () => selectZone(z));
+  zonesEl.appendChild(btn);
+});
+
+function selectZone(z){
+  selectedZone = z;
+  document.querySelectorAll('.zone-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.code === z.code);
+  });
+  triggerBtn.disabled = false;
+  triggerLabel.textContent = `Disparar · ${z.code}`;
+  triggerWrap.classList.add('armed');
+}
+
+function nowMXParts(){
+  const parts = new Intl.DateTimeFormat('es-MX', {
+    timeZone: 'America/Mexico_City',
+    hour12: false, day:'2-digit', month:'2-digit', year:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  }).formatToParts(new Date());
+  const get = t => parts.find(p => p.type === t).value;
+  return {
+    time: `${get('hour')}:${get('minute')}:${get('second')}`,
+    date: `${get('day')}/${get('month')}/${get('year')}`,
+  };
+}
+
+function tickClock(){
+  clockEl.textContent = nowMXParts().time;
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+function buildTweetText(zone, date, time){
+  return `#TenemosAlerta #Simulacro\n⚠️ Activación de Alerta Sismica para ${zone.code}, realice evacuación por sismo. ${date} ${time}`;
+}
+
+triggerBtn.addEventListener('click', async () => {
+  if(!selectedZone) return;
+  triggerBtn.disabled = true;
+  const { date, time } = nowMXParts();
+  const text = buildTweetText(selectedZone, date, time);
+
+  logEl.innerHTML = `<span class="pending">Publicando alerta para ${selectedZone.code} (${time})…</span>`;
+
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        zoneCode: selectedZone.code,
+        zoneLabel: selectedZone.label,
+        time,
+        text
+      })
+    });
+    const data = await res.json();
+    if(res.ok){
+      logEl.innerHTML = `<span class="ok">✔ Publicado</span> — ${selectedZone.code} a las ${time}\n${data.url ? data.url : ''}`;
+    } else {
+      logEl.innerHTML = `<span class="err">✘ Error al publicar</span>\n${data.error || 'Error desconocido'}`;
+    }
+  } catch(err){
+    logEl.innerHTML = `<span class="err">✘ Error de red</span>\n${err.message}`;
+  } finally {
+    triggerBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
